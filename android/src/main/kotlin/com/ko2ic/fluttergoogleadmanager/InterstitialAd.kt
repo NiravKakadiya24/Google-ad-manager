@@ -1,9 +1,8 @@
 package com.ko2ic.fluttergoogleadmanager
 
 import com.google.android.gms.ads.AdListener
-import com.google.android.gms.ads.LoadAdError
-import com.google.android.gms.ads.admanager.AdManagerAdRequest
-import com.google.android.gms.ads.admanager.AdManagerAdView
+import com.google.android.gms.ads.doubleclick.PublisherAdRequest
+import com.google.android.gms.ads.doubleclick.PublisherInterstitialAd
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
@@ -11,7 +10,7 @@ import io.flutter.plugin.common.PluginRegistry
 class InterstitialAd(registrar: PluginRegistry.Registrar, private val channel: MethodChannel) :
         MethodChannel.MethodCallHandler {
 
-    private val interstitialAd = AdManagerAdView(registrar.context())
+    private val interstitialAd = PublisherInterstitialAd(registrar.context())
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -36,7 +35,7 @@ class InterstitialAd(registrar: PluginRegistry.Registrar, private val channel: M
             }
             interstitialAd.adListener = InterstitialAdListener(channel)
         }
-        val builder = AdManagerAdRequest.Builder()
+        val builder = PublisherAdRequest.Builder()
         customTargeting?.let {
             it.entries.forEach { (key, value) ->
                 if (key is String) {
@@ -54,8 +53,8 @@ class InterstitialAd(registrar: PluginRegistry.Registrar, private val channel: M
     }
 
     private fun show(result: MethodChannel.Result) {
-        if (!interstitialAd.isLoading) {
-            interstitialAd.isShown;
+        if (interstitialAd.isLoaded) {
+            interstitialAd.show()
             result.success(null)
         } else {
             result.error("not_loaded_yet", "The interstitial wasn't loaded yet", null)
@@ -80,11 +79,8 @@ class InterstitialAd(registrar: PluginRegistry.Registrar, private val channel: M
          * Called on failure.
          * The [errorCode] parameter indicates the type of error that occurred.
          */
-
-
-        override fun onAdFailedToLoad(p0: LoadAdError) {
-            super.onAdFailedToLoad(p0)
-            channel.invokeMethod("onAdFailedToLoad", mapOf("errorCode" to p0))
+        override fun onAdFailedToLoad(errorCode: Int) {
+            channel.invokeMethod("onAdFailedToLoad", mapOf("errorCode" to errorCode))
         }
 
         /**
@@ -106,6 +102,9 @@ class InterstitialAd(registrar: PluginRegistry.Registrar, private val channel: M
         /**
          * called when the user has left the app.
          */
-
+        override fun onAdLeftApplication() {
+            super.onAdLeftApplication()
+            channel.invokeMethod("onAdLeftApplication", null)
+        }
     }
 }

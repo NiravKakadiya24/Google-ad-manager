@@ -7,9 +7,8 @@ import android.widget.LinearLayout
 import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
-import com.google.android.gms.ads.LoadAdError
-import com.google.android.gms.ads.admanager.AdManagerAdRequest
-import com.google.android.gms.ads.admanager.AdManagerAdView
+import com.google.android.gms.ads.doubleclick.PublisherAdRequest
+import com.google.android.gms.ads.doubleclick.PublisherAdView
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -22,7 +21,7 @@ class BannerView(private val context: Context, id: Int, messenger: BinaryMesseng
     MethodChannel.MethodCallHandler {
 
     private var container: ViewGroup?
-    private var publisherAdView: AdManagerAdView? = null
+    private var publisherAdView: PublisherAdView? = null
 
     private val channel = MethodChannel(messenger, "plugins.ko2ic.com/google_ad_manager/banner/$id")
 
@@ -86,7 +85,7 @@ class BannerView(private val context: Context, id: Int, messenger: BinaryMesseng
         container?.removeAllViews()
         publisherAdView?.destroy()
 
-        val builder = AdManagerAdRequest.Builder()
+        val builder = PublisherAdRequest.Builder()
         customTargeting?.let {
             it.entries.forEach { (key, value) ->
                 when (value) {
@@ -97,7 +96,7 @@ class BannerView(private val context: Context, id: Int, messenger: BinaryMesseng
 
             }
         }
-        this.publisherAdView = AdManagerAdView(context)
+        this.publisherAdView = PublisherAdView(context)
 
         if (isDevelop) {
             publisherAdView?.adUnitId = "/6499/example/banner"
@@ -105,10 +104,10 @@ class BannerView(private val context: Context, id: Int, messenger: BinaryMesseng
             publisherAdView?.adUnitId = adUnitId
         }
 
-//        builder.addTestDevice(AdRequest.DEVICE_ID_EMULATOR)
+        builder.addTestDevice(AdRequest.DEVICE_ID_EMULATOR)
         val testDevices = arguments["testDevices"] as? List<*>
         testDevices?.filterIsInstance<String>()?.forEach { testDevice ->
-//            builder.addTestDevice(testDevice)
+            builder.addTestDevice(testDevice)
         }
 
         publisherAdView?.setAdSizes(*adSizes)
@@ -147,7 +146,7 @@ class BannerView(private val context: Context, id: Int, messenger: BinaryMesseng
      */
     class BannerListener(
         private val channel: MethodChannel,
-        private val publisherAdView: AdManagerAdView?
+        private val publisherAdView: PublisherAdView?
     ) :
         AdListener() {
         /**
@@ -162,8 +161,11 @@ class BannerView(private val context: Context, id: Int, messenger: BinaryMesseng
             channel.invokeMethod("onAdLoaded", null)
         }
 
-        override fun onAdFailedToLoad(p0: LoadAdError) {
-            super.onAdFailedToLoad(p0)
+        /**
+         * Called on failure.
+         * The [errorCode] parameter indicates the type of error that occurred.
+         */
+        override fun onAdFailedToLoad(errorCode: Int) {
             publisherAdView?.pause()
             publisherAdView?.adListener = null
             publisherAdView?.destroy()
@@ -171,10 +173,8 @@ class BannerView(private val context: Context, id: Int, messenger: BinaryMesseng
             if (parent is ViewGroup) {
                 parent.removeView(publisherAdView)
             }
-            channel.invokeMethod("onAdFailedToLoad", mapOf("errorCode" to p0))
+            channel.invokeMethod("onAdFailedToLoad", mapOf("errorCode" to errorCode))
         }
-
-
 
         /**
          * Called when a user taps an ad.
@@ -198,7 +198,9 @@ class BannerView(private val context: Context, id: Int, messenger: BinaryMesseng
          * Called when the current app is moved to the background as the user launched another app (such as Google Play).
          * This method will be called after {@link BannerView.BannerListener#onAdOpened()}.
          */
-
-
+        override fun onAdLeftApplication() {
+            super.onAdLeftApplication()
+            channel.invokeMethod("onAdLeftApplication", null)
+        }
     }
 }
